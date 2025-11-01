@@ -1,24 +1,23 @@
-// ✅ Autocomplete script for Royal Wholesale Forecast Form
+// ✅ Royal Wholesale Forecast Form - Product Autocomplete + Auto-fill SKU
 
-// 1️⃣ Load product names and SKUs from your JSON file on GitHub
+let productsData = [];
+
+// 1️⃣ Load product names and SKUs from your JSON file
 fetch('https://raw.githubusercontent.com/Peter8892/royalwholesale-products/main/csvjson.json')
   .then(res => res.json())
   .then(data => {
-    const datalist = document.getElementById('productList');
-    if (!datalist) return;
+    productsData = data;
+    const productList = document.getElementById('productList');
+    if (!productList) return;
 
-    // Store product data for lookup
-    window.productLookup = {};
-
-    // Add each product title as an option
+    // Populate product names for autocomplete
+    const seen = new Set();
     data.forEach(item => {
-      const option = document.createElement('option');
-      option.value = item.Title;
-      datalist.appendChild(option);
-
-      // Keep SKU lookup ready
-      if (item["Variant SKU"]) {
-        window.productLookup[item.Title.trim()] = item["Variant SKU"].replace(/^'/, ''); // remove leading apostrophe
+      if (item.Title && !seen.has(item.Title)) {
+        const opt = document.createElement('option');
+        opt.value = item.Title;
+        productList.appendChild(opt);
+        seen.add(item.Title);
       }
     });
 
@@ -27,15 +26,20 @@ fetch('https://raw.githubusercontent.com/Peter8892/royalwholesale-products/main/
   .catch(err => console.error('❌ Error loading product list:', err));
 
 
-// 2️⃣ When user selects a product, auto-fill the SKU
+// 2️⃣ When product name changes, auto-fill the matching SKU
 document.addEventListener('input', function (e) {
   if (e.target.classList.contains('product-name')) {
-    const title = e.target.value.trim();
-    const skuInput = e.target.closest('.forecast-item').querySelector('input[name="sku[]"]');
-    if (window.productLookup && window.productLookup[title]) {
-      skuInput.value = window.productLookup[title];
-    } else {
-      skuInput.value = '';
+    const productName = e.target.value.trim();
+    const product = productsData.find(p => p.Title === productName);
+
+    if (product) {
+      // Find SKU input in the same forecast section
+      const parentSection = e.target.closest('.forecast-item');
+      const skuInput = parentSection.querySelector('input[name="sku[]"]');
+
+      if (skuInput && product["Variant SKU"]) {
+        skuInput.value = product["Variant SKU"].replace(/^'/, ''); // Remove leading apostrophe if any
+      }
     }
   }
 });
@@ -45,12 +49,14 @@ document.addEventListener('input', function (e) {
 document.getElementById('addProduct').addEventListener('click', function () {
   const section = document.querySelector('.forecast-item');
   const clone = section.cloneNode(true);
+
+  // Clear all input values
   clone.querySelectorAll('input, textarea').forEach(el => el.value = '');
   document.getElementById('forecast-sections').appendChild(clone);
 });
 
 
-// 4️⃣ Handle form submission to webhook
+// 4️⃣ Handle form submission
 document.getElementById('forecastForm').addEventListener('submit', async function (e) {
   e.preventDefault();
 
