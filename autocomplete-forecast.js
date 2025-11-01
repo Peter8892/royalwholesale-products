@@ -1,39 +1,47 @@
-// ✅ Load product names + SKUs from JSON
-let productData = [];
+// ✅ Autocomplete script for Royal Wholesale Forecast Form
 
+// 1️⃣ Load product names and SKUs from your JSON file on GitHub
 fetch('https://raw.githubusercontent.com/Peter8892/royalwholesale-products/main/csvjson.json')
   .then(res => res.json())
   .then(data => {
-    productData = data;
-
     const datalist = document.getElementById('productList');
     if (!datalist) return;
 
-    // Populate product name list
+    // Store product data for lookup
+    window.productLookup = {};
+
+    // Add each product title as an option
     data.forEach(item => {
       const option = document.createElement('option');
       option.value = item.Title;
       datalist.appendChild(option);
+
+      // Keep SKU lookup ready
+      if (item["Variant SKU"]) {
+        window.productLookup[item.Title.trim()] = item["Variant SKU"].replace(/^'/, ''); // remove leading apostrophe
+      }
     });
 
     console.log(`✅ Loaded ${data.length} products for autocomplete`);
   })
   .catch(err => console.error('❌ Error loading product list:', err));
 
-// ✅ Autofill SKU when a product name is selected
-document.addEventListener('input', e => {
-  if (e.target.classList.contains('product-name')) {
-    const val = e.target.value.trim().toLowerCase();
-    const found = productData.find(p => p.Title.toLowerCase() === val);
 
-    if (found) {
-      const skuField = e.target.closest('.forecast-item').querySelector('input[name="sku[]"]');
-      if (skuField) skuField.value = found["Variant SKU"] || '';
+// 2️⃣ When user selects a product, auto-fill the SKU
+document.addEventListener('input', function (e) {
+  if (e.target.classList.contains('product-name')) {
+    const title = e.target.value.trim();
+    const skuInput = e.target.closest('.forecast-item').querySelector('input[name="sku[]"]');
+    if (window.productLookup && window.productLookup[title]) {
+      skuInput.value = window.productLookup[title];
+    } else {
+      skuInput.value = '';
     }
   }
 });
 
-// ✅ Clone forecast item
+
+// 3️⃣ Handle “Add Another Product” button
 document.getElementById('addProduct').addEventListener('click', function () {
   const section = document.querySelector('.forecast-item');
   const clone = section.cloneNode(true);
@@ -41,7 +49,8 @@ document.getElementById('addProduct').addEventListener('click', function () {
   document.getElementById('forecast-sections').appendChild(clone);
 });
 
-// ✅ Submit to webhook
+
+// 4️⃣ Handle form submission to webhook
 document.getElementById('forecastForm').addEventListener('submit', async function (e) {
   e.preventDefault();
 
