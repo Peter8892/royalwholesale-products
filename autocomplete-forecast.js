@@ -1,16 +1,15 @@
-// ✅ Autocomplete + SKU autofill script for Royal Wholesale Forecast Form
-
+// ✅ Load product names + SKUs from JSON
 let productData = [];
 
-// 1️⃣ Load product names and SKUs from JSON
 fetch('https://raw.githubusercontent.com/Peter8892/royalwholesale-products/main/csvjson.json')
   .then(res => res.json())
   .then(data => {
     productData = data;
+
     const datalist = document.getElementById('productList');
     if (!datalist) return;
 
-    // Add product titles to datalist
+    // Populate product name list
     data.forEach(item => {
       const option = document.createElement('option');
       option.value = item.Title;
@@ -21,24 +20,20 @@ fetch('https://raw.githubusercontent.com/Peter8892/royalwholesale-products/main/
   })
   .catch(err => console.error('❌ Error loading product list:', err));
 
-
-// 2️⃣ Autofill SKU when product name matches
-document.addEventListener('input', function (e) {
+// ✅ Autofill SKU when a product name is selected
+document.addEventListener('input', e => {
   if (e.target.classList.contains('product-name')) {
-    const name = e.target.value.trim().toLowerCase();
-    const match = productData.find(
-      item => item.Title.toLowerCase() === name
-    );
+    const val = e.target.value.trim().toLowerCase();
+    const found = productData.find(p => p.Title.toLowerCase() === val);
 
-    if (match) {
+    if (found) {
       const skuField = e.target.closest('.forecast-item').querySelector('input[name="sku[]"]');
-      if (skuField) skuField.value = match["Variant SKU"] || '';
+      if (skuField) skuField.value = found["Variant SKU"] || '';
     }
   }
 });
 
-
-// 3️⃣ Handle “Add Another Product” button
+// ✅ Clone forecast item
 document.getElementById('addProduct').addEventListener('click', function () {
   const section = document.querySelector('.forecast-item');
   const clone = section.cloneNode(true);
@@ -46,8 +41,7 @@ document.getElementById('addProduct').addEventListener('click', function () {
   document.getElementById('forecast-sections').appendChild(clone);
 });
 
-
-// 4️⃣ Handle form submission
+// ✅ Submit to webhook
 document.getElementById('forecastForm').addEventListener('submit', async function (e) {
   e.preventDefault();
 
