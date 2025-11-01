@@ -1,25 +1,71 @@
-// ✅ Autocomplete script for Royal Wholesale Forecast Form
+// ✅ Smart Autocomplete Script for Royal Wholesale Forecast Form
 
-// 1️⃣ Load product names from your JSON file on GitHub
+let productList = [];
+
+// 1️⃣ Load all product titles from your GitHub JSON
 fetch('https://raw.githubusercontent.com/Peter8892/royalwholesale-products/main/csvjson.json')
   .then(res => res.json())
   .then(data => {
-    const datalist = document.getElementById('productList');
-    if (!datalist) return;
-
-    // Add each product title as an option
-    data.forEach(item => {
-      const option = document.createElement('option');
-      option.value = item.Title;
-      datalist.appendChild(option);
-    });
-
-    console.log(`✅ Loaded ${data.length} products for autocomplete`);
+    productList = data.map(item => item.Title);
+    console.log(`✅ Loaded ${productList.length} products`);
   })
   .catch(err => console.error('❌ Error loading product list:', err));
 
 
-// 2️⃣ Handle “Add Another Product” button
+// 2️⃣ Create a custom dropdown for live filtering
+document.addEventListener('input', function (e) {
+  if (!e.target.classList.contains('product-name')) return;
+
+  const input = e.target;
+  const val = input.value.toLowerCase();
+  const parent = input.parentElement;
+
+  // Remove any existing suggestion box
+  parent.querySelectorAll('.autocomplete-box').forEach(box => box.remove());
+
+  if (val.length < 2) return; // start suggesting after 2 characters
+
+  const matches = productList
+    .filter(name => name.toLowerCase().includes(val))
+    .slice(0, 10);
+
+  if (matches.length === 0) return;
+
+  const box = document.createElement('div');
+  box.className = 'autocomplete-box';
+  box.style.position = 'absolute';
+  box.style.background = '#fff';
+  box.style.border = '1px solid #ccc';
+  box.style.borderRadius = '6px';
+  box.style.zIndex = '1000';
+  box.style.width = input.offsetWidth + 'px';
+  box.style.maxHeight = '200px';
+  box.style.overflowY = 'auto';
+
+  matches.forEach(match => {
+    const item = document.createElement('div');
+    item.textContent = match;
+    item.style.padding = '6px 10px';
+    item.style.cursor = 'pointer';
+    item.addEventListener('click', () => {
+      input.value = match;
+      box.remove();
+    });
+    item.addEventListener('mouseover', () => {
+      item.style.background = '#f0f0f0';
+    });
+    item.addEventListener('mouseout', () => {
+      item.style.background = '#fff';
+    });
+    box.appendChild(item);
+  });
+
+  parent.style.position = 'relative';
+  parent.appendChild(box);
+});
+
+
+// 3️⃣ Handle “Add Another Product” button
 document.getElementById('addProduct').addEventListener('click', function () {
   const section = document.querySelector('.forecast-item');
   const clone = section.cloneNode(true);
@@ -28,7 +74,7 @@ document.getElementById('addProduct').addEventListener('click', function () {
 });
 
 
-// 3️⃣ Handle form submission to webhook
+// 4️⃣ Handle form submission to webhook
 document.getElementById('forecastForm').addEventListener('submit', async function (e) {
   e.preventDefault();
 
