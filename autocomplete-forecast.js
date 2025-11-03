@@ -1,132 +1,129 @@
-// ✅ SKU suggestions filtered by product name (per-row datalist)
-// Paste this as your autocomplete-forecast.js (replace old file)
+// ✅ Smart Autocomplete Script for Royal Wholesale Forecast Form
 
-let productsData = [];
+let productList = [];
 
-// Load product JSON
+// 1️⃣ Load all product titles from your GitHub JSON
 fetch('https://raw.githubusercontent.com/Peter8892/royalwholesale-products/main/csvjson.json')
-  .then(r => r.json())
+  .then(res => res.json())
   .then(data => {
-    productsData = data || [];
-    console.log(`✅ product JSON loaded: ${productsData.length} items`);
-    initExistingRows(); // prepare existing rows
+    productList = data.map(item => item.Title);
+    console.log(`✅ Loaded ${productList.length} products`);
   })
-  .catch(err => {
-    console.error('❌ failed to load product JSON', err);
-  });
+  .catch(err => console.error('❌ Error loading product list:', err));
 
-// Utility: create a unique id
-function uid(prefix = 'id') {
-  return prefix + '-' + Math.random().toString(36).slice(2, 9);
-}
 
-// Ensure each forecast row has its own sku datalist and wiring
-function prepareRow(rowEl) {
-  if (!rowEl) return;
+// 2️⃣ Create a custom dropdown for live filtering
+document.addEventListener('input', function (e) {
+  if (!e.target.classList.contains('product-name')) return;
 
-  // product name input in this row
-  const productInput = rowEl.querySelector('input.product-name[name="product_name[]"]');
-  const skuInput = rowEl.querySelector('input[name="sku[]"]');
+  const input = e.target;
+  const val = input.value.toLowerCase();
+  const parent = input.parentElement;
 
-  // if skuInput already has an attached datalist, reuse
-  if (!skuInput) return;
+  // Remove any existing suggestion box
+  parent.querySelectorAll('.autocomplete-box').forEach(box => box.remove());
 
-  // create datalist if not present
-  if (!skuInput.getAttribute('list')) {
-    const dlId = uid('skuList');
-    const dl = document.createElement('datalist');
-    dl.id = dlId;
-    // attach datalist to DOM (as sibling)
-    skuInput.after(dl);
-    skuInput.setAttribute('list', dlId);
-  }
+  if (val.length < 2) return; // start suggesting after 2 characters
 
-  // attach listeners
-  // handle product input changes (typing/select)
-  productInput.addEventListener('input', function () {
-    handleProductChange(productInput, skuInput);
-  });
+  const matches = productList
+    .filter(name => name.toLowerCase().includes(val))
+    .slice(0, 10);
 
-  // also handle blur (some browsers select via blur)
-  productInput.addEventListener('change', function () {
-    handleProductChange(productInput, skuInput);
-  });
-}
+  if (matches.length === 0) return;
 
-// When product name changes in a row, populate that row's SKU datalist
-function handleProductChange(productInput, skuInput) {
-  const typed = (productInput.value || '').trim();
-  const dlId = skuInput.getAttribute('list');
-  if (!dlId) return;
-  const dl = document.getElementById(dlId);
-  if (!dl) return;
+  const box = document.createElement('div');
+  box.className = 'autocomplete-box';
+  box.style.position = 'absolute';
+  box.style.background = '#fff';
+  box.style.border = '1px solid #ccc';
+  box.style.borderRadius = '6px';
+  box.style.zIndex = '1000';
+  box.style.width = input.offsetWidth + 'px';
+  box.style.maxHeight = '200px';
+  box.style.overflowY = 'auto';
 
-  // clear old options
-  dl.innerHTML = '';
-
-  if (typed.length === 0) {
-    // nothing typed -> no suggestions
-    return;
-  }
-
-  const typedLower = typed.toLowerCase();
-
-  // first attempt exact match (case-insensitive)
-  const exact = productsData.filter(p => (p.Title || '').trim().toLowerCase() === typedLower);
-  if (exact.length > 0) {
-    exact.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = (p["Variant SKU"] || '').replace(/^'/, '');
-      dl.appendChild(opt);
+  matches.forEach(match => {
+    const item = document.createElement('div');
+    item.textContent = match;
+    item.style.padding = '6px 10px';
+    item.style.cursor = 'pointer';
+    item.addEventListener('click', () => {
+      input.value = match;
+      box.remove();
     });
-    return;
-  }
-
-  // otherwise fuzzy: include products where title includes typed substring
-  const matches = productsData
-    .filter(p => (p.Title || '').toLowerCase().includes(typedLower))
-    .slice(0, 5); // max 5 suggestions
-
-  matches.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = (p["Variant SKU"] || '').replace(/^'/, '');
-    dl.appendChild(opt);
+    item.addEventListener('mouseover', () => {
+      item.style.background = '#f0f0f0';
+    });
+    item.addEventListener('mouseout', () => {
+      item.style.background = '#fff';
+    });
+    box.appendChild(item);
   });
-}
 
-// Prepare all existing rows on load
-function initExistingRows() {
-  const rows = document.querySelectorAll('.forecast-item');
-  rows.forEach(row => prepareRow(row));
-}
+  parent.style.position = 'relative';
+  parent.appendChild(box);
+});
 
-// Hook up cloning/add-row button so new rows get prepared
-document.getElementById('addProduct')?.addEventListener('click', function () {
-  // clone the first template item (your existing logic)
+
+// 3️⃣ Handle “Add Another Product” button
+document.getElementById('addProduct').addEventListener('click', function () {
   const section = document.querySelector('.forecast-item');
   const clone = section.cloneNode(true);
   clone.querySelectorAll('input, textarea').forEach(el => el.value = '');
   document.getElementById('forecast-sections').appendChild(clone);
-
-  // wait a tick for DOM to update, then prepare the new row
-  setTimeout(() => {
-    const all = document.querySelectorAll('.forecast-item');
-    const newRow = all[all.length - 1];
-    prepareRow(newRow);
-  }, 50);
 });
 
-// Also defensive: if rows are added in some other way, observe
-const container = document.getElementById('forecast-sections');
-if (container) {
-  const mo = new MutationObserver(muts => {
-    muts.forEach(m => {
-      m.addedNodes.forEach(node => {
-        if (node.nodeType === 1 && node.classList.contains('forecast-item')) {
-          prepareRow(node);
-        }
-      });
+
+// 4️⃣ Handle form submission to webhook
+document.getElementById('forecastForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  const form = e.target;
+  const data = new FormData(form);
+
+  const base = {
+    full_name: data.get('full_name'),
+    company_name: data.get('company_name'),
+    email: data.get('email'),
+    phone: data.get('phone'),
+    program_name: data.get('program_name'),
+    shopify_customer_id: data.get('shopify_customer_id') || null,
+    created_at: new Date().toISOString(),
+    products: []
+  };
+
+  const names = data.getAll('product_name[]');
+  const skus = data.getAll('sku[]');
+  const quantities = data.getAll('quantity[]');
+  const dates = data.getAll('forecast_date[]');
+  const notes = data.getAll('notes[]');
+
+  for (let i = 0; i < names.length; i++) {
+    base.products.push({
+      product_name: names[i],
+      sku: skus[i],
+      quantity: parseInt(quantities[i]) || 0,
+      forecast_date: dates[i],
+      notes: notes[i] || ''
     });
-  });
-  mo.observe(container, { childList: true });
-}
+  }
+
+  document.getElementById('responseMsg').textContent = 'Submitting...';
+
+  try {
+    const res = await fetch('https://sbcaio.app.n8n.cloud/webhook/f0b4a47a-b6c5-491c-bec5-9379e4646604', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(base)
+    });
+
+    if (res.ok) {
+      document.getElementById('responseMsg').textContent = '✅ Forecast submitted successfully!';
+      form.reset();
+    } else {
+      document.getElementById('responseMsg').textContent = '⚠ Something went wrong. Please try again.';
+    }
+  } catch (error) {
+    document.getElementById('responseMsg').textContent = '❌ Error submitting form.';
+  }
+});
